@@ -4,6 +4,7 @@ import click
 import schoolopy
 from json import loads
 import os
+from shutil import rmtree
 
 home = os.getenv('HOME')
 
@@ -36,9 +37,24 @@ def schoology():
 @click.option('--secret', required=True, help='Your API secret')
 def login(key, secret):
     'Connect to your schoology account'
-    open(
-        os.path.join(home, '.schoology', 'creds.json'), 'w+'
-    ).write('{"key": "%s", "secret": "%s"}' % (key, secret))
+    try:
+        open(
+            os.path.join(home, '.schoology', 'creds.json'), 'w+'
+        ).write('{"key": "%s", "secret": "%s"}' % (key, secret))
+    except:
+        try:
+            rmtree(
+                os.path.join(home, '.schoology', '.creds.json')
+            )
+        except:
+            pass
+        os.mkdir(
+            os.path.join(home, '.schoology')
+        )
+        open(
+            os.path.join(home, '.schoology', 'creds.json'), 'w+'
+        ).write('{"key": "%s", "secret": "%s"}' % (key, secret))
+
 
 @schoology.command()
 def logout():
