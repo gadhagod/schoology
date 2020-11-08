@@ -1,0 +1,11 @@
+- Getting Started
+    - [Overview](README.md)
+- Commands
+    - [login](commands/login.md)
+    - [logout](commands/logout.md)
+    - [whoami](commands/whoami.md)
+    - [feed](commands/feed.md)
+    - [grades](commands/grades.md)
+    - [schools](commands/schools.md)
+    - [user](commands/user.md)
+    - [assignment](commands/assignment.md)

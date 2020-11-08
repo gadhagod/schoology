@@ -1,0 +1,332 @@
+#!/usr/bin/env python
+
+import click
+import schoolopy
+from json import loads
+import os
+
+home = os.getenv('HOME')
+
+class styles:
+    end = '\033[0m'
+    red = '\033[31m'
+    green = '\033[32m'
+    yellow = "\033[33m"
+
+def get_creds():
+    try:
+        creds = loads(
+            open(
+                os.path.join(home, '.schoology', 'creds.json'), 'r'
+            ).read()
+        )
+
+    except FileNotFoundError:
+        click.echo(styles.red + 'Bad or nonexistant credentials. Run "login" to authorize.' + styles.end)
+        exit()
+
+    return(schoolopy.Schoology(schoolopy.Auth(creds['key'], creds['secret'])))
+
+@click.group()
+def schoology():
+    'Get your student data from schoology to your command line'
+
+@schoology.command()
+@click.option('--key', required=True, help='Your API key')
+@click.option('--secret', required=True, help='Your API secret')
+def login(key, secret):
+    'Connect to your schoology account'
+    open(
+        os.path.join(home, '.schoology', 'creds.json'), 'w+'
+    ).write('{"key": "%s", "secret": "%s"}' % (key, secret))
+
+@schoology.command()
+def logout():
+    'Disconnect from your schoology account'
+    sc = get_creds()
+    if sc:
+        os.remove(os.path.join(home, '.schoology', 'creds.json'))
+
+@schoology.command()
+def whoami():
+    'Get your user data'
+    sc = get_creds()
+    user = sc.get_me()
+    click.echo('ID: ' + str(user['id']))
+    click.echo('School ID: ' + str(user['school_id']))
+    click.echo('Name: ' + user['name_display'])
+    click.echo('Username: ' + user['username'])
+    click.echo('Email: ' + user['primary_email'])
+    click.echo('Graduation year: ' + user['grad_year'])
+    return(user)
+
+@schoology.command()
+@click.option('--limit', type=click.INT, required=False, help='Limit of results')
+@click.option('--id', required=False, is_flag=True, help='Show ID')
+def courses(limit, id):
+    'List courses'
+    sc = get_creds()
+    if limit:
+        sc.limit = limit
+    res = sc.get_user_sections(sc.get_me()['id'])
+    for course in res:
+        click.echo(course['course_title'])
+        if id:
+            click.echo('ID: ' + course['course_id'])
+            click.echo('----------')
+    return(res)
+
+@schoology.command()
+@click.option('--section', required=False, help='Show grades of a section')
+def grades(section):
+    'Get grades per section and period'
+    sc = get_creds()
+    res = sc.get_user_grades(sc.get_me()['id'])
+    if section:
+        for ssection in res:
+            if ssection['section_id'] == section:
+                for category in ssection['final_grade']:
+                    click.echo(
+                        'Period: %s, Grade: %s' % (category['period_id'],  category['grade']) 
+                    )
+                click.echo('')
+    else:
+        for ssection in res:
+            click.echo('Section: %s' % (ssection['section_id']))
+            for category in ssection['final_grade']:
+                click.echo(
+                    'Period: %s, Grade: %s' % (category['period_id'],  category['grade']) 
+                )
+            click.echo('')
+    return(res)
+
+@schoology.command()
+@click.option('--limit', type=click.INT, required=False, help='Limit of results')
+@click.option('--id', required=False, is_flag=True, help='Show ID')
+@click.option('--likes', required=False, is_flag=True, help='Show likes count')
+@click.option('--comments', required=False, is_flag=True, help='Show comment count')
+@click.option('--time', required=False, is_flag=True, help='Show time when posted')
+@click.option('--body', required=False, is_flag=True, help='Show body')
+def feed(limit, id, likes, comments, time, body):
+    'Get your schoology feed'
+    sc = get_creds()
+    if limit:
+        sc.limit = limit
+    res = sc.get_feed()
+    for update in res:
+        part = False
+        if id:
+            part = True
+            click.echo('ID: ' + str(update['id']))
+        if likes:
+            part = True
+            click.echo('Likes: ' + str(update['likes']))
+        if comments:
+            part = True
+            click.echo('Comments: ' + str(update['num_comments']))
+        if time:
+            part = True
+            click.echo('Time: ' + str(update['created']))
+        if body:
+            part = True
+            click.echo('Body: ' + update['body'])
+        if not part:
+            click.echo('ID: ' + str(update['id']))
+            click.echo('Likes: ' + str(update['likes']))
+            click.echo('Comments: ' + str(update['num_comments']))
+            click.echo('Time: ' + str(update['created']))
+            click.echo('Body: ' + update['body'])
+        click.echo('----------')
+    return(res)
+
+
+@schoology.command()
+@click.option('--limit', type=click.INT, required=False, help='Limit of results')
+@click.option('--id', required=False, is_flag=True, help='Show ID')
+@click.option('--likes', required=False, is_flag=True, help='Show likes count')
+@click.option('--comments', required=False, is_flag=True, help='Show comment count')
+@click.option('--time', required=False, is_flag=True, help='Show time when posted')
+@click.option('--body', required=False, is_flag=True, help='Show body')
+@click.option('--section', required=False, help='Show updates of a section')
+@click.option('--group', required=False, help='Show updates of a group')
+def updates(limit, id, likes, comments, time, body, section, group):
+    'Get updates of a section or group'
+    sc = get_creds()
+    if limit:
+        sc.limit = limit
+    if not section and not group:
+        click.echo(styles.red + 'Missing option --section or --group' + styles.end)
+        exit()
+    if section and group:
+        click.echo(styles.red + 'Can\'t take both options --section and --group' + styles.end)
+    try:
+        if section:
+            res = sc.get_section_updates(section)
+        if group:
+            res = sc.get_group_updates(group)
+    except KeyError:
+        if section:
+            click.echo(styles.red + 'Section not found' + styles.end)
+        else:
+            click.echo(styles.red + 'Group not found' + styles.end)
+        exit()
+    for update in res:
+        part = False
+        if id:
+            part = True
+            click.echo('ID: ' + str(update['id']))
+        if likes:
+            part = True
+            click.echo('Likes: ' + str(update['likes']))
+        if comments:
+            part = True
+            click.echo('Comments: ' + str(update['num_comments']))
+        if time:
+            part = True
+            click.echo('Time: ' + str(update['created']))
+        if body:
+            part = True
+            click.echo('Body: ' + update['body'])
+        if not part:
+            click.echo('ID: ' + str(update['id']))
+            click.echo('Likes: ' + str(update['likes']))
+            click.echo('Comments: ' + str(update['num_comments']))
+            click.echo('Time: ' + str(update['created']))
+            click.echo('Body: ' + update['body'])
+        click.echo('----------')
+    return(res)
+
+@schoology.command()
+@click.option('--limit', type=click.INT, required=False, help='Limit of results')
+@click.option('--id', required=False, is_flag=True, help='Show ID')
+@click.option('--name', required=False, is_flag=True, help='Show name')
+@click.option('--location', required=False, is_flag=True, help='Show location')
+@click.option('--postal-code', required=False, is_flag=True, help='Show postal code')
+@click.option('--website', required=False, is_flag=True, help='Show website')
+@click.option('--phone', required=False, is_flag=True, help='Show phone number')
+def schools(limit, id, name, location, postal_code, website, phone):
+    'List schools'
+    sc = get_creds()
+    if limit:
+        sc.limit = limit
+    res = sc.get_schools()
+    for school in res:
+        part = False
+        if id:
+            part = True
+            click.echo('ID: ' + school['id'])
+        if name:
+            part = True
+            click.echo('Name: ' + school['title'])
+        if location:
+            part = True
+            click.echo('Location: %s, %s, %s, %s' % (school['address1'], school['city'], school['state'], school['country']))
+        if postal_code:
+            part = True
+            click.echo('Postal code: ' + school['postal_code'])
+        if website:
+            part = True
+            click.echo('Website: ' + school['website'])
+        if phone:
+            part = True
+            click.echo('Phone: ' + school['phone'])
+        if not part:
+            click.echo('ID: ' + school['id'])
+            click.echo('Name: ' + school['title'])
+            click.echo('Location: %s, %s, %s, %s' % (school['address1'], school['city'], school['state'], school['country']))
+            click.echo('Postal code: ' + school['postal_code'])
+            click.echo('Website: ' + school['website'])
+            click.echo('Phone: ' + school['phone'].replace('.', '-'))
+        click.echo('----------')
+    return(res)
+
+
+@schoology.command()
+@click.argument('user-ID', required=True)
+@click.option('--limit', type=click.INT, required=False, help='Limit of results')
+@click.option('--name', required=False, is_flag=True, help='Show name')
+@click.option('--email', required=False, is_flag=True, help='Show email')
+@click.option('--school-id', required=False, is_flag=True, help='Show school id')
+@click.option('--school-name', required=False, is_flag=True, help='Show school name')
+@click.option('--school-location', required=False, is_flag=True, help='Show school location')
+@click.option('--school-postal-code', required=False, is_flag=True, help='Show school postal code')
+@click.option('--school-website', required=False, is_flag=True, help='Show school website')
+@click.option('--school-phone', required=False, is_flag=True, help='Show school phone')
+def user(limit, user_id, name, email, school_id, school_name, school_location, school_postal_code, school_website, school_phone):
+    'Get data on a user'
+    sc = get_creds() 
+    res = sc.get_user(user_id)
+    if name:
+        click.echo('Name: ' + res['name_display'])
+    if email:
+        click.echo('Email: ' + res['primary_email'])
+
+    if school_id or school_name or school_location or school_postal_code or school_website or school_phone:
+        click.echo('School:')
+        school = sc.get_school(res['school_id'])
+    if school_id:
+        click.echo('  ID: ' + str(res['school_id']))
+    if school_name:
+        click.echo('  Name: ' + school['title'])
+    if school_location:
+        click.echo('  Location: %s, %s, %s, %s' % (school['address1'], school['city'], school['state'], school['country']))
+    if school_postal_code:
+        click.echo('  Postal code: ' + school['postal_code'])
+    if school_website:
+        click.echo('  Website: ' + school['website'])
+    if school_phone:
+        click.echo('  Phone: ' + school['phone'].replace('.', '-'))
+    return(res)
+
+@schoology.command()
+@click.option('--section-id', required=True, help='Section ID')
+@click.option('--assignment-id', required=True, help='Assignment ID')
+@click.option('--title', required=False, is_flag=True, help='Show title')
+@click.option('--description', required=False, is_flag=True, help='Show description')
+@click.option('--due-date', required=False, is_flag=True, help='Show due date')
+@click.option('--weight', required=False, is_flag=True, help='Show grade weight')
+@click.option('--folder', required=False, is_flag=True, help='Show folder ID')
+@click.option('--last-updated', required=False, is_flag=True, help='Show time last updated')
+@click.option('--completion', required=False, is_flag=True, help='Show completion status')
+def assignment(section_id, assignment_id, title, description, due_date, weight, folder, last_updated, completion, comments):
+    'Get assignment data'
+    sc = get_creds()
+    res = sc.get_assignment(section_id, assignment_id)
+    if res['completion_status'] == '':
+        res['completion_status'] = 'incomplete'
+    else:
+        res['completion_status'] = 'complete'
+    part = False
+    if title:
+        part = True
+        click.echo('Title: ' + res['title'])
+    if description:
+        part = True
+        click.echo('Description: ' + res['description'])
+    if due_date:
+        part = True
+        click.echo('Due date: ' + res['due'])
+    if weight:
+        part = True
+        click.echo('Weight: ' + res['max_points'])
+    if folder:
+        part = True
+        click.echo('Folder: ' + res['folder_id'])
+    if last_updated:
+        part = True
+        click.echo('Last updated: ' + res['last_updated'])
+    if completion:
+        part = True
+        click.echo('Completion status: ' + res['completion_status'])
+
+    if not part:
+        click.echo('Title: ' + res['title'])
+        click.echo('Description: ' + res['description'])
+        click.echo('Due date: ' + res['due'])
+        click.echo('Weight: ' + res['max_points'])
+        click.echo('Folder: ' + res['folder_id'])
+        click.echo('Last updated: ' + res['last_updated'])
+        click.echo('Completion status: ' + res['completion_status'])
+    return(res)
+
+schoology(prog_name='schoology')
