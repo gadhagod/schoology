@@ -10,4 +10,4 @@ Get your grades.
  - Not required
 
 **Description** \
-Echoes all grades (unless `--section` is specified).
+Echoes all grades of all courses/sections (unless `--section` is specified).

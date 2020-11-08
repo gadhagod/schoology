@@ -1,6 +1,6 @@
 🏫
 
-# Schoology <small>v1-1</small>
+# Schoology <small>v1.2</small>
 
 > The Ultimate Schoology CLI
 

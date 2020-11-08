@@ -13,5 +13,5 @@ Connect to your schoology account.
  - Requried
 
 **Description** \
-Authorize to your schoology account. Credentials are stored in `~/.schoology`. \
+Authorize to your schoology account. Credentials are stored in `~/.schoology/creds.json`. \
 Get your API credentials from `https://{your school's schoology URL}/api`.

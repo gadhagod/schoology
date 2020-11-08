@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='schoology',
-    version='1.1',
+    version='1.2',
     author='Aarav Borthakur',
     author_email='gadhaguy13@gmail.com',
     description='The Ultimate Schoology CLI',

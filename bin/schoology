@@ -77,11 +77,13 @@ def courses(limit, id):
     return(res)
 
 @schoology.command()
+@click.option('--limit', type=click.INT, required=False, help='Limit of results')
 @click.option('--section', required=False, help='Show grades of a section')
-def grades(section):
+def grades(limit, section):
     'Get grades per section and period'
     sc = get_creds()
     res = sc.get_user_grades(sc.get_me()['id'])
+    loop_count = 0
     if section:
         for ssection in res:
             if ssection['section_id'] == section:
@@ -90,14 +92,22 @@ def grades(section):
                         'Period: %s, Grade: %s' % (category['period_id'],  category['grade']) 
                     )
                 click.echo('')
+            if limit:
+                loop_count = loop_count + 1
+            if loop_count == limit:
+                break
     else:
         for ssection in res:
-            click.echo('Section: %s' % (ssection['section_id']))
+            click.echo('Section: %s' % sc.get_section(ssection['section_id'])['course_title'])
             for category in ssection['final_grade']:
                 click.echo(
                     'Period: %s, Grade: %s' % (category['period_id'],  category['grade']) 
                 )
             click.echo('')
+            if limit:
+                loop_count = loop_count + 1
+            if loop_count == limit:
+                break
     return(res)
 
 @schoology.command()
